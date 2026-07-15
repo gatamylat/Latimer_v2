@@ -305,10 +305,11 @@ pre.code{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--i
   <div class="chips">
     <div class="chip" onclick="backupAll()">⇩ бэкап .json</div>
     <div class="chip" onclick="$('backupFile').click()">⇪ восстановить</div>
-    <div class="chip" onclick="downloadSelf()">⇩ копия программы</div>
+    <div class="chip" onclick="downloadSelf(true)">⇩ живая копия</div>
+    <div class="chip" onclick="downloadSelf(false)">⇩ чистая программа</div>
   </div>
   <input type="file" id="backupFile" accept=".json,application/json" style="display:none" onchange="restoreBackup(this)">
-  <div class="f-note">Бэкап — всё разом: текущий шар, полка, субличности (без ключа API). Восстановление заменит данные на этом устройстве. Копия программы — сам index.html: организм умеет размножаться, как «Организм».</div>
+  <div class="f-note">Бэкап — всё разом: шар, полка, субличности (без ключа API); восстановление заменит данные на этом устройстве. Живая копия — программа с вшитым семенем мира: открой её где угодно, и если там пусто — мир прорастёт сам. Чистая программа — index.html без мира, для публикации.</div>
   <div class="f-label" style="margin-top:28px">Полка</div>
   <div class="chips"><div class="chip" onclick="renderShelf();openSheet('shShelf')">⛁ полка шаров</div></div>
 </div></div>
@@ -393,6 +394,7 @@ const ORGAN_MAP=[
 ];
 const ORGAN_LOG=[
   ['2026-07-12','ядро','v4: модульный геном, экономика с кэшем, совещание, продление, финал с ревью хвоста.'],
+  ['2026-07-12','выгрузка','v7.5: живая копия — программа с вшитым семенем мира (прорастает на чистом месте, копия копии не двоит семя); чистая программа отдельно.'],
   ['2026-07-12','выгрузка','v7.4: полный бэкап .json (шар+полка+субличности) с восстановлением, самокопия программы, кнопки ⧉ на модулях, акте и html дома.'],
   ['2026-07-12','ядро','v7.3: сон сосуда — автопауза при max(20 мин, 2.5×интервал хода) без ходов и наблюдателя; ▶ будит с того же места.'],
   ['2026-07-12','ядро','v7.2: фикс продления (добавка к прожитому, не к исходному бюджету — конец петли стоп-машин), спасение рваного JSON в финале, акту 1600 токенов.'],
@@ -1299,12 +1301,26 @@ function restoreBackup(inp){
   };
   rd.readAsText(f);inp.value='';
 }
-async function downloadSelf(){
+async function getSelfSrc(){
   let src='';
   try{const r=await fetch(location.href,{cache:'no-store'});if(r.ok)src=await r.text();}catch(e){}
   if(!src||src.length<5000)src='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-  downloadText('latimer2-copy.html',src,'text/html;charset=utf-8');
-  toast('копия программы выгружена');
+  // вычищаем прежнее семя (копия копии не должна тащить два мира)
+  return src.replace(/<script id="seed">[\s\S]*?<\/script>/,'');
+}
+async function downloadSelf(live){
+  let src=await getSelfSrc();
+  if(live){
+    const pack={latimer:2,exported:Date.now(),state:S,shelf:archList(),personas:persLib()};
+    const seed='<scr'+'ipt id="seed">window.__LATIMER_SEED__='+JSON.stringify(pack).replace(/</g,'\\u003c')+'</scr'+'ipt>';
+    if(src.includes('<!--SEED-->'))src=src.replace('<!--SEED-->',seed+'\n<!--SEED-->');
+    else src=src.replace('</body>',seed+'\n</body>');
+    downloadText('latimer2-live.html',src,'text/html;charset=utf-8');
+    toast('живая копия выгружена — мир внутри');
+  }else{
+    downloadText('latimer2-copy.html',src,'text/html;charset=utf-8');
+    toast('чистая программа выгружена');
+  }
 }
 
 /* ── субличности: UI ── */
@@ -1381,6 +1397,20 @@ $('hdrActions').insertAdjacentHTML('beforeend',
 
 /* ── возобновление ── */
 (function boot(){
+  // спора: живая копия прорастает, только если здесь ещё нет жизни
+  try{
+    if(window.__LATIMER_SEED__){
+      const sd=window.__LATIMER_SEED__;
+      if(!localStorage.getItem(LSKEY)&&sd.latimer===2){
+        if(sd.state)localStorage.setItem(LSKEY,JSON.stringify(sd.state));
+        if(sd.shelf)localStorage.setItem(LSARCH,JSON.stringify(sd.shelf));
+        if(sd.personas)localStorage.setItem(LSPERS,JSON.stringify(sd.personas));
+        toast('спора проросла — мир восстановлен из живой копии');
+      }else if(localStorage.getItem(LSKEY)){
+        toast('здесь уже есть жизнь — семя копии не проросло');
+      }
+    }
+  }catch(e){}
   $('fCharter').value=DEFAULT_CHARTER;
   renderBudget();
   const prev=load();
@@ -1424,5 +1454,6 @@ $('hdrActions').insertAdjacentHTML('beforeend',
   }
 })();
 </script>
+<!--SEED-->
 </body>
 </html>
