@@ -266,6 +266,10 @@ pre.code{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--i
   <div class="sheet-title">Дом</div>
   <div class="sheet-sub" id="houseSub">версия 0 · пусто</div>
   <iframe class="house-frame" id="houseFrame" sandbox="allow-scripts" title="Дом"></iframe>
+  <div class="chips" style="margin-top:12px">
+    <div class="chip" onclick="copyText(assembleHouse()||'','html дома скопирован')">⧉ копировать html</div>
+    <div class="chip" onclick="exportHouse()">⇩ скачать дом</div>
+  </div>
 </div></div>
 
 <div class="sheet" id="shGenome"><div class="grip"></div><div class="sheet-body">
@@ -297,6 +301,14 @@ pre.code{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--i
     <div class="chip" onclick="exportHouse()">⇩ Дом .html</div>
   </div>
   <div class="f-note">Хроника — вся лента с дневниками и актом, готовый материал для «Мебель+ИИ». Дом — то, что они вырастили, отдельным живым файлом.</div>
+  <div class="f-label" style="margin-top:28px">Бэкап</div>
+  <div class="chips">
+    <div class="chip" onclick="backupAll()">⇩ бэкап .json</div>
+    <div class="chip" onclick="$('backupFile').click()">⇪ восстановить</div>
+    <div class="chip" onclick="downloadSelf()">⇩ копия программы</div>
+  </div>
+  <input type="file" id="backupFile" accept=".json,application/json" style="display:none" onchange="restoreBackup(this)">
+  <div class="f-note">Бэкап — всё разом: текущий шар, полка, субличности (без ключа API). Восстановление заменит данные на этом устройстве. Копия программы — сам index.html: организм умеет размножаться, как «Организм».</div>
   <div class="f-label" style="margin-top:28px">Полка</div>
   <div class="chips"><div class="chip" onclick="renderShelf();openSheet('shShelf')">⛁ полка шаров</div></div>
 </div></div>
@@ -381,6 +393,9 @@ const ORGAN_MAP=[
 ];
 const ORGAN_LOG=[
   ['2026-07-12','ядро','v4: модульный геном, экономика с кэшем, совещание, продление, финал с ревью хвоста.'],
+  ['2026-07-12','выгрузка','v7.4: полный бэкап .json (шар+полка+субличности) с восстановлением, самокопия программы, кнопки ⧉ на модулях, акте и html дома.'],
+  ['2026-07-12','ядро','v7.3: сон сосуда — автопауза при max(20 мин, 2.5×интервал хода) без ходов и наблюдателя; ▶ будит с того же места.'],
+  ['2026-07-12','ядро','v7.2: фикс продления (добавка к прожитому, не к исходному бюджету — конец петли стоп-машин), спасение рваного JSON в финале, акту 1600 токенов.'],
   ['2026-07-12','платформа','v7.1: неймспейс latimer2_*, внешний manifest.webmanifest, sw.js network-first — v1 и v2 живут в одном браузере не мешая друг другу.'],
   ['2026-07-12','ядро','v7: экология — перегной (вето/удаления питают протокол и L.env.humus), конденсат полки в корм нового шара, бисоциатор (авто на 30%/70% + вброс наблюдателя).'],
   ['2026-07-12','ядро','v6: субличности — библиотека пресетов, редактор своих, слоты строитель/вето, заморозка пары при запайке.'],
@@ -648,6 +663,7 @@ function nodeFor(e){
   if(e.role==='observer')return{c:'var(--violet)',ic:'✦'};
   if(e.role==='house')return{c:'var(--teal)',ic:'⌂'};
   if(e.kind==='поиск')return{c:'var(--teal)',ic:'⌕'};
+  if(e.kind==='сон')return{c:'var(--t3)',ic:'☾'};
   if(e.kind==='бисоциация')return{c:'var(--amber)',ic:'⚡'};
   return{c:'var(--t3)',ic:'·'};
 }
@@ -675,6 +691,19 @@ function addFeed(role,tag,kind,text,extra){
 /* ── таймер / бар ── */
 let lastTick=null,clockInt=null;
 function resumeClockAnchor(){lastTick=Date.now()}
+/* ── сон сосуда: автопауза без ходов и без наблюдателя ── */
+const SLEEP_MIN=20;
+let lastAct={turn:Date.now(),user:Date.now()};
+function sleepMs(){return Math.max(SLEEP_MIN*60000,turnInterval()*2.5)}
+function vesselSleep(){
+  S.paused=true;S.slept=true;
+  const bp=$('btnPause');if(bp)bp.textContent='▶';
+  $('orb').classList.add('dead');
+  $('feed').classList.remove('live');
+  addFeed('system','система','сон','Сосуд уснул: '+Math.round(sleepMs()/60000)+' минут ни ходов, ни наблюдателя. Время замерло — нажми «▶», жизнь продолжится с этого места.');
+  updateBar();save();
+}
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{lastAct.user=Date.now()},{passive:true}));
 function startClock(){
   if(clockInt)clearInterval(clockInt);
   resumeClockAnchor();
@@ -684,6 +713,7 @@ function startClock(){
     lastTick=now;
     if(S&&S.phase==='run'){
       updateBar();
+      if(!S.paused&&!busy&&now-Math.max(lastAct.turn,lastAct.user)>sleepMs()){vesselSleep();return;}
       if(S.elapsedMs>=S.budgetMin*60000&&S.finalStep===0&&!busy)beginFinal();
     }
   },1000);
@@ -699,7 +729,7 @@ function updateBar(){
   }
   $('barInfo').innerHTML=`осталось <b>${fmtClock(remainMs())}</b> · ход ${S.turnCount}/${S.maxTurns} · дом v<b>${S.house.v}</b><br>${spent}`;
   $('hdrStatus').innerHTML=S.paused
-    ?`сеанс на паузе · <b class="warn">жизнь замерла</b>`
+    ?(S.slept?`сосуд спит · <b class="warn">время замерло</b> · ▶ разбудит`:`сеанс на паузе · <b class="warn">жизнь замерла</b>`)
     :`запаяно на ${fmtClock(S.budgetMin*60000)} · <b>жизнь идёт</b> · ходит ${AG(S.turn).name}`;
 }
 function togglePause(){
@@ -707,7 +737,7 @@ function togglePause(){
   $('btnPause').textContent=S.paused?'▶':'⏸';
   $('orb').classList.toggle('dead',S.paused);
   $('feed').classList.toggle('live',!S.paused);
-  if(!S.paused){resumeClockAnchor();scheduleTick(800)}
+  if(!S.paused){S.slept=false;lastAct.turn=Date.now();lastAct.user=Date.now();resumeClockAnchor();scheduleTick(800)}
   updateBar();save();
 }
 
@@ -899,6 +929,18 @@ async function callClaude(agent,user,opt){
   const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
   return{text,searches,truncated:data.stop_reason==='max_tokens'};
 }
+function salvageText(raw){
+  const j=parseJSON(raw);
+  if(j&&j.text)return String(j.text);
+  const m=String(raw).match(/"text"\s*:\s*"([\s\S]*)/);
+  if(m){
+    let t=m[1];
+    const q=t.lastIndexOf('"');
+    if(q>t.length-8&&q>0)t=t.slice(0,q);
+    return t.replace(/\\n/g,'\n').replace(/\\"/g,'"');
+  }
+  return String(raw);
+}
 function parseJSON(text){
   let t=text.replace(/```json|```/g,'').trim();
   const a=t.indexOf('{'),b=t.lastIndexOf('}');
@@ -925,7 +967,7 @@ async function tick(){
   try{await doTurn();}catch(e){
     addFeed('system','система','сбой','Ход сорвался: '+(e.message||e)+'. Пробуем следующий.');
   }
-  busy=false;S.turnCount++;save();updateBar();
+  busy=false;S.turnCount++;lastAct.turn=Date.now();save();updateBar();
   if(S.phase==='run'&&!S.paused)scheduleTick();
 }
 
@@ -1044,16 +1086,13 @@ async function finalTick(){
       S.finalStep=2;
     }else if(S.finalStep===2){
       const r=await callClaude('master',buildUser('Срок вышел. Напиши финальный "дневник": что построили, что не успели, что думаешь о напарнике — честно.','brief'),{search:false,maxTok:1000});
-      const j=parseJSON(r.text);
-      addFeed('master',AG('master').name,'дневник',(j&&j.text)||r.text.slice(0,700));S.finalStep=3;
+      addFeed('master',AG('master').name,'дневник',salvageText(r.text).slice(0,900));S.finalStep=3;
     }else if(S.finalStep===3){
-      const r=await callClaude('revisor',buildUser('Срок вышел. Напиши финальный "дневник": оцени результат по существу, скажи правду о работе пары и о Мастере.','brief'),{search:false,maxTok:1000});
-      const j=parseJSON(r.text);
-      addFeed('revisor',AG('revisor').name,'дневник',(j&&j.text)||r.text.slice(0,700));S.finalStep=4;
+      const r=await callClaude('revisor',buildUser('Срок вышел. Напиши финальный "дневник": оцени результат по существу, скажи правду о работе пары и о напарнике-строителе.','brief'),{search:false,maxTok:1000});
+      addFeed('revisor',AG('revisor').name,'дневник',salvageText(r.text).slice(0,900));S.finalStep=4;
     }else if(S.finalStep===4){
-      const r=await callClaude('master',buildUser('Последний ход. Напиши совместный "акт" сдачи от лица пары: что выросло в сосуде (версия дома, суть вещи), чему научились, рекомендация наблюдателю.','brief'),{search:false,maxTok:1000});
-      const j=parseJSON(r.text);
-      const act=(j&&j.text)||r.text.slice(0,900);
+      const r=await callClaude('master',buildUser('Последний ход. Напиши совместный "акт" сдачи от лица пары: что выросло в сосуде (версия дома, суть вещи), чему научились, рекомендация наблюдателю. Уложись в объём — не перечисляй все органы, назови главные.','brief'),{search:false,maxTok:1600});
+      const act=salvageText(r.text).slice(0,1400);
       addFeed('system','пара','акт',act);
       S.phase='done';S.finalStep=5;
       $('orb').classList.add('dead');
@@ -1066,15 +1105,18 @@ async function finalTick(){
   if(S.finalStep<5)scheduleTick(2500);
 }
 function showAct(act){
+  lastRevealCode=act;
   $('revealCard').innerHTML=`
     <div class="reveal-role"><span class="d" style="background:var(--acc)"></span><span class="n" style="color:var(--acc)">Акт сдачи</span></div>
     <div class="reveal-ai">${esc(act)}</div>
+    <div class="chips" style="justify-content:center"><div class="chip" onclick="copyText(lastRevealCode,'акт скопирован')">⧉ копировать акт</div></div>
     <div class="reveal-src">дом v${S.house.v} · ${fmtClock(S.budgetMin*60000)} · ${S.turnCount} ходов · ${fmtTok(tokNow())} токенов · ≈ ${fmtUsd(costNow())} · сосуд вскрыт</div>
     <div class="reveal-hint">нажми чтобы закрыть</div>`;
   $('reveal').classList.add('on');
 }
 
 /* ── просмотр ── */
+let lastRevealCode='';
 function showCode(i){
   const e=S.feed[i];if(!e)return;
   let code=e.mcode;
@@ -1083,20 +1125,24 @@ function showCode(i){
     if(h)code=h.code;
     else{toast('код этой версии ужат диетой памяти');return}
   }
+  lastRevealCode=code;
   $('revealCard').innerHTML=`
     <div class="reveal-role"><span class="d" style="background:${AG('master').color}"></span><span class="n" style="color:${AG('master').color}">Модуль «${esc(e.module||'?')}» · v${e.v}</span></div>
     <div class="reveal-title">${esc(e.text)}</div>
     <pre class="code">${esc(code)}</pre>
+    <div class="chips" style="justify-content:center"><div class="chip" onclick="copyText(lastRevealCode,'модуль скопирован')">⧉ копировать модуль</div></div>
     <div class="reveal-src">${code.split('\n').length} строк модуля</div>
     <div class="reveal-hint">нажми чтобы закрыть</div>`;
   $('reveal').classList.add('on');
 }
 function showModuleHist(idx){
   const h=S.house.history[idx];if(!h)return;
+  lastRevealCode=h.code||'';
   $('revealCard').innerHTML=`
     <div class="reveal-role"><span class="d" style="background:var(--green)"></span><span class="n" style="color:var(--green)">Геном · v${h.v}</span></div>
     <div class="reveal-title">Модуль «${esc(h.module)}» — ${esc(h.note)}</div>
     <pre class="code">${esc(h.code||'—')}</pre>
+    <div class="chips" style="justify-content:center"><div class="chip" onclick="copyText(lastRevealCode,'модуль скопирован')">⧉ копировать модуль</div></div>
     <div class="reveal-src">${esc(h.at)}</div>
     <div class="reveal-hint">нажми чтобы закрыть</div>`;
   $('reveal').classList.add('on');
@@ -1143,7 +1189,10 @@ function sendMeet(){
 function extendBy(i){
   if(!S){toast('сначала запаяй сосуд');return}
   const b=BUDGETS[i];
-  S.budgetMin+=b.min;S.maxTurns+=b.turns;
+  // продление = добавка К ТЕКУЩЕМУ МОМЕНТУ: если прожито больше бюджета, база — прожитое
+  const elapsedMin=Math.ceil(S.elapsedMs/60000);
+  S.budgetMin=Math.max(S.budgetMin,elapsedMin)+b.min;
+  S.maxTurns=Math.max(S.maxTurns,S.turnCount+4)+b.turns;
   const lbl=b.label.split(' ·')[0];
   if(S.phase==='done'||S.finalStep>0){
     S.phase='run';S.finalStep=0;S.diaryDone={};S.paused=false;S.pending=null;
@@ -1197,6 +1246,11 @@ function copyPassport(){
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,()=>fallbackCopy(t,done));
   else fallbackCopy(t,done);
 }
+function copyText(t,msg){
+  const done=()=>toast(msg||'скопировано');
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,()=>fallbackCopy(t,done));
+  else fallbackCopy(t,done);
+}
 function fallbackCopy(t,done){
   const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();
   try{document.execCommand('copy');done()}catch(e){toast('не удалось скопировать')}
@@ -1220,6 +1274,37 @@ function renderOrgans(){
 function reset(){
   if(S&&S.feed&&S.feed.length)archSave(S);
   localStorage.removeItem(LSKEY);location.reload();
+}
+
+/* ── бэкап: шар + полка + субличности ── */
+function backupAll(){
+  const pack={latimer:2,exported:Date.now(),state:S,shelf:archList(),personas:persLib()};
+  const d=new Date();
+  const name='latimer2-backup-'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'.json';
+  downloadText(name,JSON.stringify(pack),'application/json;charset=utf-8');
+  toast('бэкап выгружен');
+}
+function restoreBackup(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const pack=JSON.parse(rd.result);
+      if(pack.latimer!==2)throw new Error('это не бэкап Латимера 2');
+      if(pack.state)localStorage.setItem(LSKEY,JSON.stringify(pack.state));else localStorage.removeItem(LSKEY);
+      if(pack.shelf)localStorage.setItem(LSARCH,JSON.stringify(pack.shelf));
+      if(pack.personas)localStorage.setItem(LSPERS,JSON.stringify(pack.personas));
+      location.reload();
+    }catch(e){toast('бэкап не прочитался: '+(e.message||e))}
+  };
+  rd.readAsText(f);inp.value='';
+}
+async function downloadSelf(){
+  let src='';
+  try{const r=await fetch(location.href,{cache:'no-store'});if(r.ok)src=await r.text();}catch(e){}
+  if(!src||src.length<5000)src='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  downloadText('latimer2-copy.html',src,'text/html;charset=utf-8');
+  toast('копия программы выгружена');
 }
 
 /* ── субличности: UI ── */
