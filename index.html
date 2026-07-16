@@ -68,6 +68,17 @@ background:linear-gradient(90deg,transparent,rgba(44,111,176,.22),transparent);a
 
 .divider{height:1px;background:var(--line);margin:0 24px}
 
+/* возвращающийся хэдер: всплывает при скролле вверх */
+.tophdr{position:fixed;top:0;left:50%;transform:translate(-50%,-110%);width:100%;max-width:580px;z-index:95;
+background:rgba(244,242,236,.93);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+border-bottom:1px solid var(--line-2);display:flex;align-items:center;gap:8px;
+padding:calc(8px + var(--st)) 16px 8px;transition:transform .28s cubic-bezier(.22,1,.36,1)}
+.tophdr.on{transform:translate(-50%,0)}
+.tophdr .tt{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--ink)}
+.tophdr .ts{font-family:var(--mono);font-size:9px;color:var(--t3);margin-right:auto;margin-left:4px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tophdr .ibtn{width:32px;height:32px;font-size:12px;flex-shrink:0}
+@media(min-width:1000px){.tophdr{max-width:1200px}}
+
 /* ── setup ── */
 .setup{padding:8px 24px 170px}
 .f-label{font-family:var(--mono);font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:var(--t3);margin:22px 0 9px}
@@ -122,7 +133,8 @@ textarea.mini{min-height:76px}
 /* ── controls ── */
 .controls{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:580px;z-index:50}
 .fade{height:48px;background:linear-gradient(transparent,var(--panel))}
-.bar{background:var(--panel);padding:15px 24px calc(19px + var(--sb));display:flex;align-items:center;justify-content:space-between;gap:11px}
+.bar{background:var(--panel);padding:15px 24px calc(19px + var(--sb))}
+.bar-in{display:flex;align-items:center;justify-content:space-between;gap:11px;width:100%;max-width:1152px;margin:0 auto}
 .bar-info{font-family:var(--mono);font-size:10px;color:#6E685C;letter-spacing:.5px;line-height:1.75}
 .bar-info b{color:#A9C8E4;font-weight:500;font-variant-numeric:tabular-nums}
 .bar-btns{display:flex;gap:9px}
@@ -142,7 +154,6 @@ textarea.mini{min-height:76px}
   .world-head{cursor:default}
   .world-head .wtoggle{display:none}
   .controls{left:0;transform:none;max-width:none}
-  .bar{max-width:1200px;margin:0 auto}
 }
 
 /* ── reveal ── */
@@ -187,6 +198,15 @@ pre.code{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--i
 <body>
 <div class="scanline" id="scanline" style="display:none"></div>
 
+<div class="tophdr" id="tophdr">
+  <span class="tt">Латимер</span><span class="ts" id="topStatus"></span>
+  <button class="ibtn" onclick="openSheet('shCharter')" title="Устав">§</button>
+  <button class="ibtn" onclick="if(S){openSheet('shGenome');renderGenome()}" title="Геном">▤</button>
+  <button class="ibtn" onclick="renderLib();openSheet('shLib')" title="Библиотека">≣</button>
+  <button class="ibtn" onclick="renderOrgans();openSheet('shOrgans')" title="Органы">❖</button>
+  <button class="ibtn" onclick="$('fKey').value=getKey();openSheet('shSettings')" title="Настройки">⚿</button>
+</div>
+
 <div class="reveal" id="reveal" onclick="closeReveal()">
   <div class="reveal-bg"></div>
   <div class="reveal-card" id="revealCard" onclick="event.stopPropagation()"></div>
@@ -219,7 +239,7 @@ pre.code{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--i
 
     <div class="f-label">Пара · субличности</div>
     <div class="chips" id="pairChips"></div>
-    <div class="f-note">Строитель предлагает модули, Ревизор владеет вето. Тап — выбрать или создать субличность. После запайки пара read-only.</div>
+    <div class="f-note">Строитель предлагает модули. Ревизор — не только вето: правит модули хирургически и подаёт эскизы органов. Тап — выбрать или создать субличность. После запайки пара read-only.</div>
 
     <div class="f-label">Срок · запаиваем на</div>
     <div class="chips" id="budgetChips"></div>
@@ -254,12 +274,12 @@ pre.code{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--i
 
 <div class="controls">
   <div class="fade"></div>
-  <div class="bar">
+  <div class="bar"><div class="bar-in">
     <div class="bar-info" id="barInfo">сосуд пуст</div>
     <div class="bar-btns" id="barBtns">
       <button class="bbtn solid" onclick="seal()">◍ Запаять</button>
     </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="sheet" id="shHouse"><div class="grip"></div><div class="sheet-body">
@@ -295,18 +315,18 @@ pre.code{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--i
   <div class="f-label" style="margin-top:28px">Продлить срок</div>
   <div class="chips" id="extendChips"></div>
   <div class="f-note">Продление добавляет время и ходы, не вскрывая сосуд. Даже завершённую сессию можно продлить — пара продолжит с того же места.</div>
-  <div class="f-label" style="margin-top:28px">Выгрузка</div>
+  <div class="f-label" style="margin-top:28px">Выгрузка · то, что вырастила пара</div>
   <div class="chips">
-    <div class="chip" onclick="exportChron()">⇩ Хроника .md</div>
-    <div class="chip" onclick="exportHouse()">⇩ Дом .html</div>
+    <div class="chip on" onclick="exportHouse()" style="font-size:10px">⌂ ДОМ — вещь пары .html</div>
+    <div class="chip" onclick="exportChron()">⇩ хроника жизни .md</div>
   </div>
   <div class="f-note">Хроника — вся лента с дневниками и актом, готовый материал для «Мебель+ИИ». Дом — то, что они вырастили, отдельным живым файлом.</div>
-  <div class="f-label" style="margin-top:28px">Бэкап</div>
+  <div class="f-label" style="margin-top:28px">Бэкап · сам сосуд и его данные</div>
   <div class="chips">
-    <div class="chip" onclick="backupAll()">⇩ бэкап .json</div>
+    <div class="chip" onclick="backupAll()">⇩ данные .json</div>
     <div class="chip" onclick="$('backupFile').click()">⇪ восстановить</div>
-    <div class="chip" onclick="downloadSelf(true)">⇩ живая копия</div>
-    <div class="chip" onclick="downloadSelf(false)">⇩ чистая программа</div>
+    <div class="chip" onclick="downloadSelf(true)">⇩ шар с миром</div>
+    <div class="chip" onclick="downloadSelf(false)">⇩ шар пустой</div>
   </div>
   <input type="file" id="backupFile" accept=".json,application/json" style="display:none" onchange="restoreBackup(this)">
   <div class="f-note">Бэкап — всё разом: шар, полка, субличности (без ключа API); восстановление заменит данные на этом устройстве. Живая копия — программа с вшитым семенем мира: открой её где угодно, и если там пусто — мир прорастёт сам. Чистая программа — index.html без мира, для публикации.</div>
@@ -316,7 +336,7 @@ pre.code{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--i
 
 <div class="sheet" id="shOrgans"><div class="grip"></div><div class="sheet-body">
   <div class="sheet-title">Органы</div>
-  <div class="sheet-sub">один чат = один орган · тап копирует бриф и открывает новый чат</div>
+  <div class="sheet-sub">тап: заготовка в новый чат + полный бриф в буфер</div>
   <div id="organRows"></div>
   <div class="f-label" style="margin-top:24px">Журнал органов</div>
   <div id="organLog" class="prose" style="font-size:12px;font-family:var(--mono);line-height:1.8"></div>
@@ -410,6 +430,9 @@ const ORGAN_MAP=[
 ];
 const ORGAN_LOG=[
   ['2026-07-12','ядро','v4: модульный геном, экономика с кэшем, совещание, продление, финал с ревью хвоста.'],
+  ['2026-07-16','оболочка','v7.8: стартовая библиотека (принципы дома, шаблон модуля, сниппет Chart.js), возвращающийся мини-хэдер при скролле вверх, органы открывают чат с заготовкой в композере (?q=).'],
+  ['2026-07-16','ядро','v7.7: ревизор-соавтор — verdict «принять с правкой» (хирургическая замена слоёв) и тип «эскиз» (заявка на орган, строитель воплощает); футер десктопа выровнен (.bar-in).'],
+  ['2026-07-16','оболочка','v7.6.1: подписи выгрузки — «ДОМ — вещь пары» отделён от «шар с миром/пустой», чтобы не путать вещь и сосуд.'],
   ['2026-07-12','библиотека','v7.6: полка стройматериалов — документы/шаблоны/сниппеты наблюдателя с редактором (≣), пара берёт по запросу type:материал; фреймворки CDN по декларации libs в модуле; библиотека в бэкапе и семени.'],
   ['2026-07-12','выгрузка','v7.5: живая копия — программа с вшитым семенем мира (прорастает на чистом месте, копия копии не двоит семя); чистая программа отдельно.'],
   ['2026-07-12','выгрузка','v7.4: полный бэкап .json (шар+полка+субличности) с восстановлением, самокопия программы, кнопки ⧉ на модулях, акте и html дома.'],
@@ -433,6 +456,7 @@ Single-file PWA: двое ИИ — МАСТЕР (строит) и РЕВИЗОР
 НЕПРИКОСНОВЕННОЕ ЯДРО
 - S в localStorage (latimer_state_v1): phase, budgetMin, maxTurns, turnCount, elapsedMs, charter, corm, feed[], house{v,modules,history,data}, turn, pending, diaryQueue, diaryDone, sverka, finalStep 0-5, paused, meeting, cacheOk, usage{inp,out,cw,cr,srch}, voices.
 - Субличности: PRESETS + библиотека latimer_personas_v1; механика слотов в SLOT (строитель/вето) отделена от характера; выбранная пара замораживается в S.agents при запайке.
+- Ревизор: вето + «принять с правкой» (слои из ревью заменяют слои pending) + «эскиз» (S.sketch → протокол → строитель воплощает или аргументирует).
 - Цикл: строгая очередь master↔revisor. Приоритеты хода: совещание > ревью pending > сверка 60% > дневники 45%/80% > старт > свободный. Ничто не входит в геном без ревью. Финал: ревью хвоста → дневник М → дневник Р → акт.
 - Время живёт только в открытом окне без паузы. Интервал хода = max(8с, 0.9·бюджет/maxTurns).
 - API: /v1/messages, claude-sonnet-4-6, system с cache_control (+fallback), ключ localStorage latimer_api_key, web_search server tool. Ответы агентов — строгий JSON {type,text,...}.
@@ -466,7 +490,7 @@ function fmtTok(t){return t>=1e6?(t/1e6).toFixed(1)+' млн':Math.round(t/1000)
 /* ── субличности: характер отдельно, механика слота отдельно ── */
 const SLOT={
   master:`ТВОЯ МЕХАНИКА (слот СТРОИТЕЛЬ): только ты подаёшь "предложение" — модуль Дома. У напарника право вето на каждый твой дифф: уважай «нет», но спорь, если уверен. Твоя сила — небольшие работающие органы.`,
-  revisor:`ТВОЯ МЕХАНИКА (слот РЕВИЗОР): право вето — "ревью" с verdict на каждое предложение напарника. Сам модули не подаёшь. Твоя работа — чтобы к концу срока выросла настоящая вещь, а не куча активности. Пара дрейфует — скажи прямо.`
+  revisor:`ТВОЯ МЕХАНИКА (слот РЕВИЗОР): три силы. 1) Вето: "ревью" с verdict "принять"/"отклонить". 2) Правка: verdict "принять с правкой" — приложи исправленные слои (css/html/js — только те, что меняешь), хирургически, не переписыванием; твоя правка входит в геном вместе с модулем. 3) Эскиз: "эскиз" — заявка на орган (имя + суть + механика), которую воплотит строитель. Сам модули целиком не подаёшь. Твоя работа — чтобы выросла настоящая вещь, а не куча активности. Пара дрейфует — скажи прямо.`
 };
 const PRESETS=[
   {id:'мастер',name:'МАСТЕР',ic:'⚒',color:'#C68A2E',sys:'Характер: строитель. Руки чешутся. Мыслишь артефактами, не абстракциями. Говоришь коротко и конкретно, слегка нетерпелив, честен, с самоиронией. Терпеть не можешь имитацию работы.'},
@@ -496,7 +520,8 @@ const SHARED_RULES=`
 "запрос" — обращение к Наблюдателю (text): просьба о корме, продлении, направлении, ответе. Он увидит его выделенным в ленте.
 "материал" — взять с полки БИБЛИОТЕКИ (список названий видите в каждом ходе): {"type":"материал","name":"название","text":"зачем берёшь"}. Содержимое придёт тебе в следующий твой ход. Бери по делу — материал стоит токенов.
 "предложение" — ОДИН МОДУЛЬ дома (только МАСТЕР), никогда не полный документ: {"type":"предложение","module":"имя-модуля","text":"что и зачем (2-3 предложения)","css":"...","html":"...","js":"..."}. Слои опциональны, каждый ≤60 строк, компактно. Опциональное поле "libs":["chart"|"three"|"tone"|"d3"] — подключает фреймворк с CDN в дом (Chart.js, Three.js, Tone.js, D3): используй, когда орган этого требует, глобальные объекты Chart/THREE/Tone/d3 будут доступны. Существующее имя — замена органа целиком, новое — рост. Удаление: {"module":"имя","remove":true,"text":"почему"}. Переносы строк в JSON экранируй как \\n.
-"ревью" — только РЕВИЗОР и только при ожидающем предложении: поле "verdict":"принять"|"отклонить", text = аргумент (2-4 предложения). Проверяй по существу: запустится ли, соответствует ли цели, использует ли возможности дома честно.
+"ревью" — только РЕВИЗОР и только при ожидающем предложении: поле "verdict":"принять"|"отклонить"|"принять с правкой", text = аргумент (2-4 предложения). При правке приложи исправленные слои css/html/js (только изменяемые, каждый ≤60 строк) — они заменят слои модуля перед входом в геном; правка хирургическая, не переписывание. Проверяй по существу: запустится ли, соответствует ли цели, использует ли возможности дома честно.
+"эскиз" — заявка на орган (обычно РЕВИЗОР): {"type":"эскиз","module":"имя","text":"зачем орган и его ключевая механика"}. Строитель увидит эскиз в протоколе и воплотит модулем — или аргументирует, почему нет.
 "дневник" — личная честная запись от первого лица, 3-6 предложений. Только по запросу системы.
 "акт" — совместный акт сдачи (только по запросу системы в конце).
 
@@ -670,7 +695,10 @@ function entryHtml(e){
   if(e.kind==='запрос')cls+=' ask';
   let extraHtml='';
   if(e.kind==='предложение')extraHtml=`<div class="codechip" onclick="showCode(${e.idx})">▤ модуль «${esc(e.module||'?')}» · v${e.v} · код</div>`;
-  if(e.kind==='ревью'&&e.verdict)extraHtml=`<div class="verdict ${e.verdict==='принять'?'ok':'no'}">${e.verdict==='принять'?'✓ принято — модуль в геноме':'✕ отклонено — вето'}</div>`;
+  if(e.kind==='ревью'&&e.verdict){
+    const okv=e.verdict.indexOf('прин')===0;
+    extraHtml=`<div class="verdict ${okv?'ok':'no'}">${okv?(e.verdict==='принять с правкой'?'✓ принято с правкой ревизора — в геноме':'✓ принято — модуль в геноме'):'✕ отклонено — вето'}</div>`;
+  }
   return `<div class="entry">
     <div class="rail"><div class="node" style="color:${n.c}">${n.ic}</div><div class="thread"></div></div>
     <div class="body">
@@ -686,6 +714,7 @@ function nodeFor(e){
   if(e.kind==='поиск')return{c:'var(--teal)',ic:'⌕'};
   if(e.kind==='сон')return{c:'var(--t3)',ic:'☾'};
   if(e.kind==='материал'||e.kind==='пополнение')return{c:'var(--violet)',ic:'≣'};
+  if(e.kind==='эскиз')return{c:'var(--acc)',ic:'✎'};
   if(e.kind==='бисоциация')return{c:'var(--amber)',ic:'⚡'};
   return{c:'var(--t3)',ic:'·'};
 }
@@ -746,10 +775,12 @@ function updateBar(){
   const spent=`≈ <b>${fmtUsd(costNow())}</b> · ${fmtTok(tokNow())} ток.`;
   if(S.phase==='done'){
     $('barInfo').innerHTML=`завершено · дом v<b>${S.house.v}</b><br>${spent}`;
+    $('topStatus').textContent='дом v'+S.house.v+' · вскрыт';
     $('hdrStatus').innerHTML=`срок вышел · <b class="dead">сосуд вскрыт</b> · дом v${S.house.v}`;
     return;
   }
   $('barInfo').innerHTML=`осталось <b>${fmtClock(remainMs())}</b> · ход ${S.turnCount}/${S.maxTurns} · дом v<b>${S.house.v}</b><br>${spent}`;
+  $('topStatus').textContent='дом v'+S.house.v+' · осталось '+fmtClock(remainMs());
   $('hdrStatus').innerHTML=S.paused
     ?(S.slept?`сосуд спит · <b class="warn">время замерло</b> · ▶ разбудит`:`сеанс на паузе · <b class="warn">жизнь замерла</b>`)
     :`запаяно на ${fmtClock(S.budgetMin*60000)} · <b>жизнь идёт</b> · ходит ${AG(S.turn).name}`;
@@ -867,6 +898,59 @@ function libSave(){
   if(S&&S.phase==='run')addFeed('system','библиотека','пополнение','Наблюдатель положил на полку: «'+name+'» ('+libKind+').');
 }
 function libDelete(id){libWrite(libList().filter(l=>l.id!==id));renderLib();toast('материал снят с полки');}
+const SEED_LIB=[
+ {id:'seed-doc',name:'Принципы дома',kind:'документ',content:`ПРИНЦИПЫ ДОМА ЛАТИМЕРА (универсальный документ для любой пары)
+1. Орган = одна честная механика. Не страница советов, а работающая вещь.
+2. Маленькое работающее лучше красивого нерабочего. Версия за версией.
+3. Доказательность: клинические и инженерные утверждения — только с базой. «Субъективно теплее» — не аргумент, это ловил Наблюдатель.
+4. Память дороже блеска: важное состояние — в L.store, дом должен узнавать вернувшегося.
+5. Голос (L.log) — редко и по делу. Дом, который болтает, никто не слушает.
+6. Пользователь в стрессе не читает инструкции: вход в орган — одно действие.
+7. Onboarding/навигация обновляется при КАЖДОМ новом органе, иначе дом — лабиринт (проверено: 14 органов без карты).
+8. Читайте перегной: смерти модулей — питание, не мусор.
+9. Дублирующие органы режьте без жалости — вето и правка для этого.
+10. К финалу дом должен уметь показать пользователю его собственную траекторию, не только инструменты.`},
+ {id:'seed-tpl',name:'Шаблон модуля',kind:'шаблон',content:`ШАБЛОН МОДУЛЯ (скопируй структуру, замени «имя»)
+Имя: kebab-case; все id внутри — с префиксом имени, чтобы не задеть чужие органы.
+── css ──
+#имя{padding:16px 24px;display:flex;flex-direction:column;gap:10px}
+#имя .t{font-size:.78rem;letter-spacing:.1em;opacity:.5;text-transform:uppercase;text-align:center}
+── html ──
+<div class="t">заголовок органа</div>
+<button id="имя-btn">одно действие</button>
+<div id="имя-out"></div>
+── js ──
+(function(){
+  var btn=document.getElementById('имя-btn'),out=document.getElementById('имя-out');
+  var saved=L.read('имя_ключ'); if(saved){/* восстановление */}
+  L.on('tick',function(t){ if(t%10===0){/* пульс, экономно */} });
+  btn.addEventListener('click',function(){
+    /* механика */
+    L.store('имя_ключ', 'значение'); // память переживёт пересборки и сессии
+    // L.log('короткая фраза'); — только если дому есть что сказать
+  });
+})();
+Помни: слой ≤60 строк; try/catch даёт ядро; среда — L.env.gen / L.env.modules / L.env.humus.`},
+ {id:'seed-snip',name:'Сниппет: график Chart.js',kind:'сниппет',content:`ГРАФИК ДАННЫХ ИЗ ПАМЯТИ ДОМА (Chart.js)
+В предложение модуля добавь поле "libs":["chart"] — ядро подключит CDN.
+── html ──
+<canvas id="имя-chart" height="140"></canvas>
+── js ──
+var raw=JSON.parse(L.read('имя_данные')||'[]'); // напр. [{d:'пн',v:3},...]
+var ctx=document.getElementById('имя-chart');
+new Chart(ctx,{type:'line',
+  data:{labels:raw.map(function(x){return x.d}),
+        datasets:[{data:raw.map(function(x){return x.v}),borderColor:'#4a9b7f',tension:.35,fill:false,pointRadius:3}]},
+  options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(255,255,255,.06)'}},x:{grid:{display:false}}}}});
+Другие полки: "three" (THREE), "tone" (Tone), "d3" (d3).`}
+];
+function seedLibrary(){
+  try{
+    if(localStorage.getItem('latimer2_lib_seeded'))return;
+    if(!libList().length)libWrite(SEED_LIB.slice());
+    localStorage.setItem('latimer2_lib_seeded','1');
+  }catch(e){}
+}
 function libByName(n){const q=String(n||'').trim().toLowerCase();return libList().find(x=>x.name.toLowerCase()===q)||libList().find(x=>x.name.toLowerCase().includes(q));}
 
 /* ── бисоциатор: новое рождается на стыке нестыкуемого ── */
@@ -908,6 +992,7 @@ function protocolBrief(){
   if(lm)p+='ПОСЛЕДНЕЕ СЛОВО НАБЛЮДАТЕЛЯ: '+String(lm.text).slice(0,280)+'\n';
   const lv=S.feed.filter(e=>e.role==='house').slice(-1)[0];
   if(lv)p+='ПОСЛЕДНИЙ ГОЛОС ДОМА: '+String(lv.text).slice(0,180)+'\n';
+  if(S.sketch)p+='ЭСКИЗ ждёт воплощения ('+S.sketch.by+'): «'+S.sketch.module+'» — '+S.sketch.text.slice(0,200)+'\n';
   const hu=(S.house.humus||[]).slice(-3);
   if(hu.length)p+='ПЕРЕГНОЙ (умершее питает новое): '+hu.map(h=>'«'+h.module+'» ('+h.cause+')').join('; ')+'\n';
   return p;
@@ -1077,9 +1162,10 @@ async function doTurn(){
       ?'Твоё прошлое предложение ещё не отревьюено — не предлагай новое. "Реплика": поясни напарнику мотив или подумай вслух о следующем шаге.'
       :'Твой свободный ход: "предложение" нового модуля дома (главное твоё оружие), "реплика" напарнику или "запрос" Наблюдателю, если чего-то не хватает. Если нужны свежие факты из сети — можешь поискать.';
     if(S.biso&&!S.pending){instruction+=' В ленте висит непрожитая БИСОЦИАЦИЯ — пропусти через неё этот ход.';S.biso=false;}
+    if(S.sketch&&!S.pending)instruction+=' Висит ЭСКИЗ напарника (см. протокол) — воплоти его модулем или скажи, почему нет.';
   }
   else{
-    instruction='Твой свободный ход: "реплика" — вопрос, сомнение, наблюдение, сверка с уставом и временем; или "запрос" Наблюдателю. Если нужны факты из сети — можешь поискать. Не пиши ревью без висящего предложения.';
+    instruction='Твой свободный ход: "реплика" — вопрос, сомнение, наблюдение, сверка с уставом и временем; "эскиз" — заявка на орган, который стоит построить; или "запрос" Наблюдателю. Если нужны факты из сети — можешь поискать. Не пиши ревью без висящего предложения.';
   }
 
   const res=await callClaude(agent,buildUser(instruction,houseMode),{maxTok});
@@ -1099,15 +1185,27 @@ async function doTurn(){
       addFeed('master',a.name,'реплика',(j.text||'')+'\n(новое предложение отложено: предыдущее ещё не отревьюено)');
     }else{
       S.pending={module:String(j.module),css:j.css?String(j.css):'',html:j.html?String(j.html):'',js:j.js?String(j.js):'',libs:Array.isArray(j.libs)?j.libs.filter(l=>LIBS_CDN[l]):[],remove:!!j.remove,text:j.text||''};
+      if(S.sketch&&S.sketch.module===S.pending.module)S.sketch=null;
       addFeed('master',a.name,'предложение',(S.pending.remove?'− «':'Модуль «')+S.pending.module+'»: '+(j.text||''),{mcode:pendingCodeStr(S.pending),v:S.house.v+1,module:S.pending.module});
     }
   }
   else if(type==='ревью'&&agent==='revisor'&&S.pending){
     const ok=(j.verdict||'').includes('прин');
-    addFeed('revisor',a.name,'ревью',j.text||'',{verdict:ok?'принять':'отклонить'});
+    const patched=ok&&(j.css||j.html||j.js);
+    if(patched){
+      if(j.css)S.pending.css=String(j.css);
+      if(j.html)S.pending.html=String(j.html);
+      if(j.js)S.pending.js=String(j.js);
+      S.pending.text+=' · правка ревизора';
+    }
+    addFeed('revisor',a.name,'ревью',j.text||'',{verdict:ok?(patched?'принять с правкой':'принять'):'отклонить'});
     if(ok)applyPending();
     else toHumus(S.pending.module,S.pending.text,'вето: '+String(j.text||'').slice(0,80),pendingCodeStr(S.pending));
     S.pending=null;
+  }
+  else if(type==='эскиз'&&j.module){
+    S.sketch={module:String(j.module),text:String(j.text||'').slice(0,300),by:a.name};
+    addFeed(agent,a.name,'эскиз','✎ Эскиз органа «'+S.sketch.module+'»: '+S.sketch.text);
   }
   else if(type==='материал'&&j.name){
     const m=libByName(j.name);
@@ -1339,7 +1437,9 @@ function organBrief(i){
 }
 function openOrgan(i){
   const t=organBrief(i);
-  const done=()=>{toast('бриф «'+ORGAN_MAP[i][0]+'» в буфере — вставь в чат');setTimeout(()=>window.open('https://claude.ai/new','_blank'),350)};
+  const starter='Проект «Латимер», чат органа «'+ORGAN_MAP[i][0]+'» ('+ORGAN_MAP[i][1]+'). Полный паспорт-бриф вставлю из буфера следующим сообщением и приложу актуальный index.html. Задание: ';
+  const url='https://claude.ai/new?q='+encodeURIComponent(starter);
+  const done=()=>{toast('бриф «'+ORGAN_MAP[i][0]+'» в буфере — вставь в чат');setTimeout(()=>window.open(url,'_blank'),350)};
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,()=>fallbackCopy(t,done));
   else fallbackCopy(t,done);
 }
@@ -1407,7 +1507,7 @@ function renderPairChips(){
   const m=personaById(slotSel.master),r=personaById(slotSel.revisor);
   el.innerHTML=
     `<div class="chip" onclick="openPair('master')" style="border-color:${m.color};color:${m.color}">${m.ic} строитель · ${esc(m.name)}</div>`+
-    `<div class="chip" onclick="openPair('revisor')" style="border-color:${r.color};color:${r.color}">${r.ic} вето · ${esc(r.name)}</div>`;
+    `<div class="chip" onclick="openPair('revisor')" style="border-color:${r.color};color:${r.color}">${r.ic} ревизор · ${esc(r.name)}</div>`;
 }
 function openPair(slot){
   if(S){toast('пара запаяна — read-only до нового шара');return}
@@ -1527,6 +1627,14 @@ $('hdrActions').insertAdjacentHTML('beforeend',
   try{open=localStorage.getItem('latimer2_world_open')||'1'}catch(e){}
   if(window.innerWidth>=1000||open==='1'){$('world').classList.remove('closed');$('worldToggle').textContent='▴';}
   startClock();
+  seedLibrary();
+  let lastScY=window.scrollY;
+  window.addEventListener('scroll',()=>{
+    const y=window.scrollY;
+    if(y>420&&y<lastScY-4)$('tophdr').classList.add('on');
+    else if(y>lastScY+4||y<=420)$('tophdr').classList.remove('on');
+    lastScY=y;
+  },{passive:true});
   if('serviceWorker' in navigator&&location.protocol==='https:'){
     navigator.serviceWorker.register('./sw.js').catch(()=>{});
   }
