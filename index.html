@@ -349,6 +349,22 @@ pre.code{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--i
   <div class="f-note">Свои субличности хранятся на этом устройстве и доступны обоим слотам. Пресеты неизменяемы, но их можно взять за основу.</div>
 </div></div>
 
+<div class="sheet" id="shLib"><div class="grip"></div><div class="sheet-body">
+  <div class="sheet-title">Библиотека</div>
+  <div class="sheet-sub">стройматериалы для пары · документы · шаблоны · сниппеты</div>
+  <div id="libRows"></div>
+  <div class="f-label" style="margin-top:24px" id="libEdTitle">Новый материал</div>
+  <input type="hidden" id="libEdId">
+  <textarea id="libEdName" class="mini" style="min-height:44px" placeholder="Название (пара увидит его на полке)"></textarea>
+  <div class="chips" id="libEdKind" style="margin:9px 0"></div>
+  <textarea id="libEdContent" class="mini" style="min-height:120px;font-family:var(--mono);font-size:12px" placeholder="Содержимое: текст документа, шаблон кода, сниппет, нормы, бриф… (пара получит его по запросу «взять с полки»)"></textarea>
+  <div style="display:flex;gap:9px;margin-top:12px">
+    <button class="chip on" style="font-size:10px;padding:11px 20px" onclick="libSave()">Сохранить</button>
+    <button class="chip" style="font-size:10px;padding:11px 20px" onclick="libClear()">Очистить</button>
+  </div>
+  <div class="f-note">Пара видит названия с полки в каждом ходе, а содержимое берёт по запросу — токены не горят зря. Материал ≤ 12 тыс. знаков, в ход отдаётся до 3 тыс. Фреймворки (Chart.js, Three.js, Tone.js, D3) пара подключает сама, декларируя "libs" в модуле.</div>
+</div></div>
+
 <div class="sheet" id="shSettings"><div class="grip"></div><div class="sheet-body">
   <div class="sheet-title">Настройки</div>
   <div class="sheet-sub">ключ api · хранится только на этом устройстве</div>
@@ -394,6 +410,7 @@ const ORGAN_MAP=[
 ];
 const ORGAN_LOG=[
   ['2026-07-12','ядро','v4: модульный геном, экономика с кэшем, совещание, продление, финал с ревью хвоста.'],
+  ['2026-07-12','библиотека','v7.6: полка стройматериалов — документы/шаблоны/сниппеты наблюдателя с редактором (≣), пара берёт по запросу type:материал; фреймворки CDN по декларации libs в модуле; библиотека в бэкапе и семени.'],
   ['2026-07-12','выгрузка','v7.5: живая копия — программа с вшитым семенем мира (прорастает на чистом месте, копия копии не двоит семя); чистая программа отдельно.'],
   ['2026-07-12','выгрузка','v7.4: полный бэкап .json (шар+полка+субличности) с восстановлением, самокопия программы, кнопки ⧉ на модулях, акте и html дома.'],
   ['2026-07-12','ядро','v7.3: сон сосуда — автопауза при max(20 мин, 2.5×интервал хода) без ходов и наблюдателя; ▶ будит с того же места.'],
@@ -423,6 +440,7 @@ Single-file PWA: двое ИИ — МАСТЕР (строит) и РЕВИЗОР
 - ОРГАН ДОМА: предложение = ОДИН модуль {module, css/html/js ≤60 строк | remove}. Сборка assembleHouse(); js в try/catch. Шина window.L: state, on(соб,фн), emit(соб,данные); L.store(k,v)/L.read(k) — память дома (переживает пересборки и сессии, ≤20КБ); L.log(текст) — голос дома в ленту шара (редко, по делу); L.env {gen, modules, voices}; событие 'tick' каждую секунду с аптаймом. «наследие».raw — миграция.
 - Дом-микрокосм рендерится живым в панели .world (refreshWorld) на каждый принятый дифф.
 - Платформа: хранилище v2 в неймспейсе latimer2_* (ключ API общий с v1); manifest.webmanifest + sw.js (network-first) — отдельная установка рядом с v1.
+- Библиотека: latimer2_library (материалы наблюдателя), тип хода «материал» (доставка в следующий ход агента через S.matFor, ≤3000 зн.), LIBS_CDN и поле libs модуля → скрипты в голове дома.
 - Экология: S.house.humus (≤12, отклонённое/удалённое) → протокол пары и L.env.humus; конденсат полки (акты прошлых шаров) подмешивается в корм по флагу; бисоциатор BISO/dropBiso — авто 30%/70% и вручную из совещания.
 - Полка (latimer_archive_v1): вскрытые шары архивируются, «Новый» не стирает.
 
@@ -476,7 +494,8 @@ const SHARED_RULES=`
 "планёрка" — договорённость о цели/плане на срок (text).
 "реплика" — короткое сообщение напарнику: мысль, вопрос, спор (text, 1-4 предложения).
 "запрос" — обращение к Наблюдателю (text): просьба о корме, продлении, направлении, ответе. Он увидит его выделенным в ленте.
-"предложение" — ОДИН МОДУЛЬ дома (только МАСТЕР), никогда не полный документ: {"type":"предложение","module":"имя-модуля","text":"что и зачем (2-3 предложения)","css":"...","html":"...","js":"..."}. Слои опциональны, каждый ≤60 строк, компактно. Существующее имя — замена органа целиком, новое — рост. Удаление: {"module":"имя","remove":true,"text":"почему"}. Переносы строк в JSON экранируй как \\n.
+"материал" — взять с полки БИБЛИОТЕКИ (список названий видите в каждом ходе): {"type":"материал","name":"название","text":"зачем берёшь"}. Содержимое придёт тебе в следующий твой ход. Бери по делу — материал стоит токенов.
+"предложение" — ОДИН МОДУЛЬ дома (только МАСТЕР), никогда не полный документ: {"type":"предложение","module":"имя-модуля","text":"что и зачем (2-3 предложения)","css":"...","html":"...","js":"..."}. Слои опциональны, каждый ≤60 строк, компактно. Опциональное поле "libs":["chart"|"three"|"tone"|"d3"] — подключает фреймворк с CDN в дом (Chart.js, Three.js, Tone.js, D3): используй, когда орган этого требует, глобальные объекты Chart/THREE/Tone/d3 будут доступны. Существующее имя — замена органа целиком, новое — рост. Удаление: {"module":"имя","remove":true,"text":"почему"}. Переносы строк в JSON экранируй как \\n.
 "ревью" — только РЕВИЗОР и только при ожидающем предложении: поле "verdict":"принять"|"отклонить", text = аргумент (2-4 предложения). Проверяй по существу: запустится ли, соответствует ли цели, использует ли возможности дома честно.
 "дневник" — личная честная запись от первого лица, 3-6 предложений. Только по запросу системы.
 "акт" — совместный акт сдачи (только по запросу системы в конце).
@@ -666,6 +685,7 @@ function nodeFor(e){
   if(e.role==='house')return{c:'var(--teal)',ic:'⌂'};
   if(e.kind==='поиск')return{c:'var(--teal)',ic:'⌕'};
   if(e.kind==='сон')return{c:'var(--t3)',ic:'☾'};
+  if(e.kind==='материал'||e.kind==='пополнение')return{c:'var(--violet)',ic:'≣'};
   if(e.kind==='бисоциация')return{c:'var(--amber)',ic:'⚡'};
   return{c:'var(--t3)',ic:'·'};
 }
@@ -757,6 +777,9 @@ function assembleHouse(){
   if(!names.length)return'';
   if(names.length===1&&mods[names[0]].raw)return mods[names[0]].raw;
   let css='',html='',js='';
+  const libSet={};
+  names.forEach(n=>{(mods[n].libs||[]).forEach(l=>{if(LIBS_CDN[l])libSet[l]=1})});
+  const libTags=Object.keys(libSet).map(l=>'<scr'+'ipt src="'+LIBS_CDN[l]+'"></scr'+'ipt>').join('\n');
   names.forEach(n=>{const m=mods[n];if(m.raw)return;
     if(m.css)css+='\n/* ── '+n+' ── */\n'+m.css;
     if(m.html)html+='\n<!-- '+n+' -->\n<section data-module="'+n+'">'+m.html+'</section>';
@@ -771,7 +794,7 @@ function assembleHouse(){
     +'store:function(k,v){this._d[k]=v;try{parent.postMessage({latimer:"store",data:this._d},"*")}catch(x){}},'
     +'log:function(m){try{parent.postMessage({latimer:"voice",text:String(m).slice(0,200)},"*")}catch(x){}}};'
     +'setInterval(function(){L._t++;L.emit("tick",L._t)},1000);';
-  return '<!DOCTYPE html>\n<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Латимер · дом v'+S.house.v+'</title>\n<style>html,body{margin:0}'+css+'\n</style></head><body>'+html
+  return '<!DOCTYPE html>\n<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Латимер · дом v'+S.house.v+'</title>\n<style>html,body{margin:0}'+css+'\n</style>'+libTags+'</head><body>'+html
     +'\n<scr'+'ipt>'+bus+'</scr'+'ipt>\n<scr'+'ipt>'+js+'\n</scr'+'ipt></body></html>';
 }
 function refreshWorld(){
@@ -805,6 +828,46 @@ window.addEventListener('message',ev=>{
     addFeed('house','ДОМ','голос',String(ev.data.text||'').slice(0,200));
   }
 });
+
+/* ── библиотека: стройматериалы наблюдателя ── */
+const LSLIB='latimer2_library';
+const LIB_KINDS=['документ','шаблон','сниппет'];
+const LIBS_CDN={
+  chart:'https://cdn.jsdelivr.net/npm/chart.js@4',
+  three:'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
+  tone:'https://cdn.jsdelivr.net/npm/tone@15/build/Tone.js',
+  d3:'https://cdn.jsdelivr.net/npm/d3@7'
+};
+function libList(){try{return JSON.parse(localStorage.getItem(LSLIB)||'[]')}catch(e){return[]}}
+function libWrite(a){try{localStorage.setItem(LSLIB,JSON.stringify(a))}catch(e){toast('не хватило места')}}
+let libKind='документ';
+function renderLibKind(){$('libEdKind').innerHTML=LIB_KINDS.map(k=>`<div class="chip${k===libKind?' on':''}" onclick="libKind='${k}';renderLibKind()">${k}</div>`).join('')}
+function renderLib(){
+  const a=libList();
+  $('libRows').innerHTML=a.length?a.map(x=>
+    `<div class="vrow"><span class="vv">≣</span><span class="vt"><b style="font-weight:500">${esc(x.name)}</b> · ${esc(x.kind)}<br><span style="color:var(--t3);font-size:12px">${x.content.length} знаков</span></span><span class="vd" onclick="libEdit('${x.id}')" style="cursor:pointer">✎</span><span class="vd" onclick="libDelete('${x.id}')" style="color:var(--rose);cursor:pointer">✕</span></div>`).join('')
+    :'<span style="color:var(--t3);font-size:13px">полка пуста — положи документы, шаблоны, нормы, брифы</span>';
+  renderLibKind();
+}
+function libClear(){$('libEdId').value='';$('libEdName').value='';$('libEdContent').value='';libKind='документ';renderLibKind();$('libEdTitle').textContent='Новый материал';}
+function libEdit(id){
+  const x=libList().find(l=>l.id===id);if(!x)return;
+  $('libEdId').value=x.id;$('libEdName').value=x.name;$('libEdContent').value=x.content;libKind=x.kind;renderLibKind();
+  $('libEdTitle').textContent='Правка · '+x.name;
+}
+function libSave(){
+  const name=$('libEdName').value.trim().slice(0,60);
+  const content=$('libEdContent').value.trim().slice(0,12000);
+  if(!name||!content){toast('нужны название и содержимое');return}
+  const a=libList();let id=$('libEdId').value;
+  if(id){const i=a.findIndex(l=>l.id===id);if(i>=0)a[i]={id,name,kind:libKind,content};}
+  else{id='m'+Date.now();a.push({id,name,kind:libKind,content});}
+  libWrite(a);libClear();renderLib();
+  toast('материал «'+name+'» на полке');
+  if(S&&S.phase==='run')addFeed('system','библиотека','пополнение','Наблюдатель положил на полку: «'+name+'» ('+libKind+').');
+}
+function libDelete(id){libWrite(libList().filter(l=>l.id!==id));renderLib();toast('материал снят с полки');}
+function libByName(n){const q=String(n||'').trim().toLowerCase();return libList().find(x=>x.name.toLowerCase()===q)||libList().find(x=>x.name.toLowerCase().includes(q));}
 
 /* ── бисоциатор: новое рождается на стыке нестыкуемого ── */
 const BISO=[
@@ -882,6 +945,13 @@ function systemBlocks(agent){
 function buildUser(instruction,houseMode){
   let u='ВРЕМЯ: прошло '+fmtClock(S.elapsedMs)+', осталось '+fmtClock(remainMs())+' из '+fmtClock(S.budgetMin*60000)+'. Ходов осталось ~'+Math.max(0,S.maxTurns-S.turnCount)+'. Распределяйте сами.\n\n';
   const p=protocolBrief();if(p)u+='ПРОТОКОЛ:\n'+p+'\n';
+  const lib=libList();
+  if(lib.length)u+='БИБЛИОТЕКА (полка наблюдателя, содержимое по запросу type:"материал"): '+lib.map(x=>'«'+x.name+'» ('+x.kind+', '+x.content.length+' зн.)').join('; ')+'\n\n';
+  if(S.matFor&&S.matFor.agent===S.turn){
+    const m=libByName(S.matFor.name);
+    if(m)u+='МАТЕРИАЛ С ПОЛКИ «'+m.name+'» ('+m.kind+'):\n'+m.content.slice(0,3000)+'\n\n';
+    S.matFor=null;
+  }
   u+=houseBlock(houseMode);
   if(S.feed.length)u+='ЛЕНТА (последнее):\n'+feedTail()+'\n\n';
   u+='ТВОЙ ХОД. '+instruction;
@@ -1028,7 +1098,7 @@ async function doTurn(){
     if(S.pending){
       addFeed('master',a.name,'реплика',(j.text||'')+'\n(новое предложение отложено: предыдущее ещё не отревьюено)');
     }else{
-      S.pending={module:String(j.module),css:j.css?String(j.css):'',html:j.html?String(j.html):'',js:j.js?String(j.js):'',remove:!!j.remove,text:j.text||''};
+      S.pending={module:String(j.module),css:j.css?String(j.css):'',html:j.html?String(j.html):'',js:j.js?String(j.js):'',libs:Array.isArray(j.libs)?j.libs.filter(l=>LIBS_CDN[l]):[],remove:!!j.remove,text:j.text||''};
       addFeed('master',a.name,'предложение',(S.pending.remove?'− «':'Модуль «')+S.pending.module+'»: '+(j.text||''),{mcode:pendingCodeStr(S.pending),v:S.house.v+1,module:S.pending.module});
     }
   }
@@ -1038,6 +1108,11 @@ async function doTurn(){
     if(ok)applyPending();
     else toHumus(S.pending.module,S.pending.text,'вето: '+String(j.text||'').slice(0,80),pendingCodeStr(S.pending));
     S.pending=null;
+  }
+  else if(type==='материал'&&j.name){
+    const m=libByName(j.name);
+    if(m){S.matFor={agent,name:m.name};addFeed(agent,a.name,'материал','≣ взял с полки: «'+m.name+'»'+(j.text?' — '+j.text:''));}
+    else addFeed(agent,a.name,'реплика','Искал на полке «'+j.name+'» — такого материала нет. '+(j.text||''));
   }
   else{
     const kind=type==='планёрка'?'планёрка':type==='дневник'?'дневник':type==='запрос'?'запрос':'реплика';
@@ -1057,7 +1132,7 @@ function applyPending(){
     if(m)toHumus(S.pending.module,S.pending.text,'удалён парой',modCode(m));
     delete S.house.modules[S.pending.module];
   }
-  else S.house.modules[S.pending.module]={css:S.pending.css,html:S.pending.html,js:S.pending.js,note:String(S.pending.text).slice(0,100),at:nowLabel()};
+  else S.house.modules[S.pending.module]={css:S.pending.css,html:S.pending.html,js:S.pending.js,libs:S.pending.libs||[],note:String(S.pending.text).slice(0,100),at:nowLabel()};
   S.house.history.push({v:S.house.v,module:S.pending.module,note:(S.pending.remove?'удалён · ':'')+String(S.pending.text).slice(0,110),at:nowLabel(),code:pendingCodeStr(S.pending)});
   if(S.house.history.length>20)S.house.history.shift();
   addFeed('system','геном','дифф','v'+S.house.v+': модуль «'+S.pending.module+'» '+(S.pending.remove?'удалён из генома':'вошёл в геном')+'. Дом пересобран.');
@@ -1162,7 +1237,7 @@ function renderGenome(){
       return `<div class="vrow" onclick="closeSheet();showModuleHist(${idx})"><span class="vv">v${h.v}</span><span class="vt">«${esc(h.module)}» · ${esc(h.note)}</span><span class="vd">${esc(h.at)}</span></div>`}).join('')
     :'<span style="color:var(--t3)">геном пуст — ни один модуль ещё не принят</span>';
 }
-const SHEETS=['shHouse','shGenome','shCharter','shMeet','shSettings','shOrgans','shShelf','shPair'];
+const SHEETS=['shHouse','shGenome','shCharter','shMeet','shSettings','shOrgans','shShelf','shPair','shLib'];
 function openSheet(id){
   $('overlay').classList.add('on');
   SHEETS.forEach(s=>$(s).classList.remove('on'));
@@ -1280,7 +1355,7 @@ function reset(){
 
 /* ── бэкап: шар + полка + субличности ── */
 function backupAll(){
-  const pack={latimer:2,exported:Date.now(),state:S,shelf:archList(),personas:persLib()};
+  const pack={latimer:2,exported:Date.now(),state:S,shelf:archList(),personas:persLib(),library:libList()};
   const d=new Date();
   const name='latimer2-backup-'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'.json';
   downloadText(name,JSON.stringify(pack),'application/json;charset=utf-8');
@@ -1296,6 +1371,7 @@ function restoreBackup(inp){
       if(pack.state)localStorage.setItem(LSKEY,JSON.stringify(pack.state));else localStorage.removeItem(LSKEY);
       if(pack.shelf)localStorage.setItem(LSARCH,JSON.stringify(pack.shelf));
       if(pack.personas)localStorage.setItem(LSPERS,JSON.stringify(pack.personas));
+      if(pack.library)localStorage.setItem(LSLIB,JSON.stringify(pack.library));
       location.reload();
     }catch(e){toast('бэкап не прочитался: '+(e.message||e))}
   };
@@ -1311,7 +1387,7 @@ async function getSelfSrc(){
 async function downloadSelf(live){
   let src=await getSelfSrc();
   if(live){
-    const pack={latimer:2,exported:Date.now(),state:S,shelf:archList(),personas:persLib()};
+    const pack={latimer:2,exported:Date.now(),state:S,shelf:archList(),personas:persLib(),library:libList()};
     const seed='<scr'+'ipt id="seed">window.__LATIMER_SEED__='+JSON.stringify(pack).replace(/</g,'\\u003c')+'</scr'+'ipt>';
     if(src.includes('<!--SEED-->'))src=src.replace('<!--SEED-->',seed+'\n<!--SEED-->');
     else src=src.replace('</body>',seed+'\n</body>');
@@ -1392,6 +1468,7 @@ function persDelete(id){
 $('hdrActions').insertAdjacentHTML('beforeend',
   `<button class="ibtn" onclick="openSheet('shCharter')" aria-label="Устав" title="Устав">§</button>
    <button class="ibtn" onclick="if(S){openSheet('shGenome');renderGenome()}" aria-label="Геном" title="Геном">▤</button>
+   <button class="ibtn" onclick="renderLib();openSheet('shLib')" aria-label="Библиотека" title="Библиотека">≣</button>
    <button class="ibtn" onclick="renderOrgans();openSheet('shOrgans')" aria-label="Органы" title="Органы">❖</button>
    <button class="ibtn" onclick="$('fKey').value=getKey();openSheet('shSettings')" aria-label="Настройки" title="Настройки">⚿</button>`);
 
@@ -1405,6 +1482,7 @@ $('hdrActions').insertAdjacentHTML('beforeend',
         if(sd.state)localStorage.setItem(LSKEY,JSON.stringify(sd.state));
         if(sd.shelf)localStorage.setItem(LSARCH,JSON.stringify(sd.shelf));
         if(sd.personas)localStorage.setItem(LSPERS,JSON.stringify(sd.personas));
+        if(sd.library)localStorage.setItem(LSLIB,JSON.stringify(sd.library));
         toast('спора проросла — мир восстановлен из живой копии');
       }else if(localStorage.getItem(LSKEY)){
         toast('здесь уже есть жизнь — семя копии не проросло');
