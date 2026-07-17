@@ -1,5 +1,5 @@
 /* Латимер 2 · service worker · network-first, офлайн из кэша */
-const CACHE='latimer2-v2';
+const CACHE='latimer2-v3';
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','./index.html'])).catch(()=>{}));
   self.skipWaiting();
